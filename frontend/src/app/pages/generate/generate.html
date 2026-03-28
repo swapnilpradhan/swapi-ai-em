@@ -1,0 +1,78 @@
+<mat-card>
+  <mat-card-title>Generate HTML Explainer</mat-card-title>
+  <mat-card-subtitle>Trigger the multi-agent pipeline and store HTML in PostgreSQL.</mat-card-subtitle>
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:16px">
+    <mat-form-field style="flex:2;min-width:320px" appearance="outline">
+      <mat-label>Topic</mat-label>
+      <input matInput [formControl]="form.controls.topic" placeholder="e.g., Chunking and Embedding" />
+    </mat-form-field>
+
+    <mat-form-field style="flex:1;min-width:260px" appearance="outline">
+      <mat-label>Workflow</mat-label>
+      <mat-select [formControl]="form.controls.workflow_type">
+        @for (wf of workflows; track wf.id) {
+          <mat-option [value]="wf.id">{{ wf.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center">
+    <button mat-raised-button color="primary" (click)="onGenerate()" [disabled]="ui.isBusy()">Generate</button>
+    @if (ui.isBusy()) {
+      <mat-progress-spinner mode="indeterminate" diameter="20"></mat-progress-spinner>
+    }
+  </div>
+
+  @if (error) {
+    <div style="margin-top:12px;color:#b00020">{{ error }}</div>
+  }
+</mat-card>
+
+@if (generation) {
+  <mat-card style="margin-top:16px">
+    <mat-card-title>Generation Summary</mat-card-title>
+    <mat-card-subtitle>
+      Status: <strong>{{ generation.status }}</strong>
+      • Total: <strong>{{ fmt.ms(generation.total_duration_ms) }}</strong>
+    </mat-card-subtitle>
+
+    <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">
+      <button mat-stroked-button color="primary" (click)="openPreview()">Open Preview</button>
+      <div style="font-size:13px;opacity:.8;align-self:center">ID: {{ generation.id }}</div>
+    </div>
+
+    <div style="margin-top:16px;overflow:auto">
+      <table mat-table [dataSource]="generation.steps" class="mat-elevation-z1" style="min-width:760px">
+        <ng-container matColumnDef="step">
+          <th mat-header-cell *matHeaderCellDef>Step</th>
+          <td mat-cell *matCellDef="let s">{{ s.step_number + 1 }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="agent">
+          <th mat-header-cell *matHeaderCellDef>Agent</th>
+          <td mat-cell *matCellDef="let s">{{ s.agent_id }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="task">
+          <th mat-header-cell *matHeaderCellDef>Task</th>
+          <td mat-cell *matCellDef="let s">{{ s.task_type }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let s">{{ s.status }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="duration">
+          <th mat-header-cell *matHeaderCellDef>Duration</th>
+          <td mat-cell *matCellDef="let s">{{ fmt.ms(s.duration_ms) }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="stepColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: stepColumns;"></tr>
+      </table>
+    </div>
+  </mat-card>
+}

@@ -1,0 +1,47 @@
+<mat-card>
+  <mat-card-title>Audit Logs</mat-card-title>
+  <mat-card-subtitle>System events: generation started/completed, step completed, failures</mat-card-subtitle>
+
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px">
+    <mat-form-field appearance="outline" style="min-width:220px">
+      <mat-label>Event Type</mat-label>
+      <input matInput [(ngModel)]="eventType" placeholder="e.g., generation_completed" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" style="min-width:200px">
+      <mat-label>Agent ID</mat-label>
+      <input matInput [(ngModel)]="agentId" placeholder="e.g., research_agent" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" style="min-width:260px;flex:1">
+      <mat-label>Correlation ID</mat-label>
+      <input matInput [(ngModel)]="correlationId" placeholder="e.g., generation UUID" />
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="refresh()">Refresh</button>
+  </div>
+
+  <div style="margin-top:12px;overflow:auto">
+    <table mat-table [dataSource]="rows" class="mat-elevation-z1" style="min-width:960px">
+      <ng-container matColumnDef="timestamp">
+        <th mat-header-cell *matHeaderCellDef>Timestamp</th>
+        <td mat-cell *matCellDef="let r">{{ r.timestamp | date:'short' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="event_type">
+        <th mat-header-cell *matHeaderCellDef>Event</th>
+        <td mat-cell *matCellDef="let r">{{ r.event_type }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="agent_id">
+        <th mat-header-cell *matHeaderCellDef>Agent</th>
+        <td mat-cell *matCellDef="let r">{{ r.agent_id || '-' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="correlation_id">
+        <th mat-header-cell *matHeaderCellDef>Correlation</th>
+        <td mat-cell *matCellDef="let r">{{ r.correlation_id || '-' }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+  </div>
+</mat-card>

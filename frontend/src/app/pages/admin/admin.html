@@ -1,0 +1,37 @@
+<mat-card>
+  <mat-card-title>Admin Overview</mat-card-title>
+  <mat-card-subtitle>KPIs from PostgreSQL + backend services</mat-card-subtitle>
+
+  <div style="margin-top:12px">
+    <button mat-raised-button color="primary" (click)="refresh()">Refresh</button>
+  </div>
+
+  @if (metrics) {
+    <div style="display:grid;grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));gap:12px;margin-top:16px">
+      <mat-card>
+        <mat-card-subtitle>Total Generations</mat-card-subtitle>
+        <mat-card-title>{{ metrics.total_generations }}</mat-card-title>
+      </mat-card>
+      <mat-card>
+        <mat-card-subtitle>Success Rate</mat-card-subtitle>
+        <mat-card-title>{{ metrics.success_rate }}%</mat-card-title>
+      </mat-card>
+      <mat-card>
+        <mat-card-subtitle>Avg Duration</mat-card-subtitle>
+        <mat-card-title>{{ fmt.ms(metrics.avg_duration_ms) }}</mat-card-title>
+      </mat-card>
+      <mat-card>
+        <mat-card-subtitle>A2A Messages</mat-card-subtitle>
+        <mat-card-title>{{ metrics.total_a2a_messages }}</mat-card-title>
+      </mat-card>
+      <mat-card>
+        <mat-card-subtitle>Audit Events</mat-card-subtitle>
+        <mat-card-title>{{ metrics.total_audit_events }}</mat-card-title>
+      </mat-card>
+      <mat-card>
+        <mat-card-subtitle>Failed Generations</mat-card-subtitle>
+        <mat-card-title>{{ metrics.failed_generations }}</mat-card-title>
+      </mat-card>
+    </div>
+  }
+</mat-card>

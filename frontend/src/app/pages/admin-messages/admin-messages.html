@@ -1,0 +1,52 @@
+<mat-card>
+  <mat-card-title>A2A Messages</mat-card-title>
+  <mat-card-subtitle>Inter-agent message history (will populate fully once A2A request/response is fixed)</mat-card-subtitle>
+
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px">
+    <mat-form-field appearance="outline" style="min-width:200px">
+      <mat-label>Sender</mat-label>
+      <input matInput [(ngModel)]="sender" placeholder="e.g., coordinator_agent" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" style="min-width:200px">
+      <mat-label>Receiver</mat-label>
+      <input matInput [(ngModel)]="receiver" placeholder="e.g., research_agent" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" style="min-width:200px">
+      <mat-label>Message Type</mat-label>
+      <input matInput [(ngModel)]="messageType" placeholder="request/response" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" style="min-width:260px;flex:1">
+      <mat-label>Correlation ID</mat-label>
+      <input matInput [(ngModel)]="correlationId" placeholder="e.g., generation UUID" />
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="refresh()">Refresh</button>
+  </div>
+
+  <div style="margin-top:12px;overflow:auto">
+    <table mat-table [dataSource]="rows" class="mat-elevation-z1" style="min-width:1040px">
+      <ng-container matColumnDef="timestamp">
+        <th mat-header-cell *matHeaderCellDef>Timestamp</th>
+        <td mat-cell *matCellDef="let r">{{ r.timestamp | date:'short' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="sender">
+        <th mat-header-cell *matHeaderCellDef>Sender</th>
+        <td mat-cell *matCellDef="let r">{{ r.sender }}</td>
+      </ng-container>
+      <ng-container matColumnDef="receiver">
+        <th mat-header-cell *matHeaderCellDef>Receiver</th>
+        <td mat-cell *matCellDef="let r">{{ r.receiver }}</td>
+      </ng-container>
+      <ng-container matColumnDef="message_type">
+        <th mat-header-cell *matHeaderCellDef>Type</th>
+        <td mat-cell *matCellDef="let r">{{ r.message_type }}</td>
+      </ng-container>
+      <ng-container matColumnDef="correlation_id">
+        <th mat-header-cell *matHeaderCellDef>Correlation</th>
+        <td mat-cell *matCellDef="let r">{{ r.correlation_id || '-' }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+  </div>
+</mat-card>

@@ -1,0 +1,173 @@
+name: PRD Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  prd-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    - name: Check if PRD exists
+      run: |
+        if [ ! -f "PRD.md" ]; then
+          echo "❌ PRD.md not found!"
+          exit 1
+        fi
+        echo "✅ PRD.md found"
+        
+    - name: Run PRD validation
+      run: |
+        python3 .windsurf/scripts/prd_validator.py
+        
+    - name: Check PRD format
+      run: |
+        # Check version format
+        VERSION=$(grep "Version:" PRD.md | sed 's/.*Version: *//')
+        if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "❌ Invalid version format: $VERSION"
+          exit 1
+        fi
+        echo "✅ Version format valid: $VERSION"
+        
+    - name: Check change log
+      run: |
+        if ! grep -q "### Change Log" PRD.md; then
+          echo "❌ Change Log section not found"
+          exit 1
+        fi
+        echo "✅ Change Log section found"
+        
+        # Count entries
+        ENTRIES=$(grep -c "^[|].*[|].*[|].*[|]" PRD.md)
+        echo "📝 Change log entries: $ENTRIES"
+        
+    - name: Validate required sections
+      run: |
+        REQUIRED_SECTIONS=(
+          "## Executive Summary"
+          "## Vision & Objectives"
+          "## System Architecture"
+          "## Technology Stack"
+          "## Roadmap & Milestones"
+          "### Change Log"
+        )
+        
+        for section in "${REQUIRED_SECTIONS[@]}"; do
+          if ! grep -q "$section" PRD.md; then
+            echo "❌ Required section missing: $section"
+            exit 1
+          fi
+        done
+        echo "✅ All required sections present"
+        
+    - name: Check roadmap consistency
+      run: |
+        if ! grep -q "### Q1 2026" PRD.md; then
+          echo "⚠️ Q1 2026 roadmap section not found"
+        else
+          COMPLETED=$(grep -o '\- \[x\]' PRD.md | wc -l)
+          PENDING=$(grep -o '\- \[ \]' PRD.md | wc -l)
+          echo "✅ Roadmap: $COMPLETED completed, $PENDING pending"
+        fi
+        
+    - name: Generate PRD status report
+      run: |
+        echo "## PRD Validation Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Status" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ PRD exists and is accessible" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Version format is valid" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Change log is present" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Required sections are present" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Roadmap is consistent" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📈 Metrics" >> $GITHUB_STEP_SUMMARY
+        VERSION=$(grep "Version:" PRD.md | sed 's/.*Version: *//')
+        UPDATED=$(grep "Last Updated:" PRD.md | sed 's/.*Last Updated: *//')
+        ENTRIES=$(grep -c "^[|].*[|].*[|].*[|]" PRD.md)
+        COMPLETED=$(grep -o '\- \[x\]' PRD.md | wc -l)
+        PENDING=$(grep -o '\- \[ \]' PRD.md | wc -l)
+        echo "- Version: $VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "- Last Updated: $UPDATED" >> $GITHUB_STEP_SUMMARY
+        echo "- Change Log Entries: $ENTRIES" >> $GITHUB_STEP_SUMMARY
+        echo "- Completed Items: $COMPLETED" >> $GITHUB_STEP_SUMMARY
+        echo "- Pending Items: $PENDING" >> $GITHUB_STEP_SUMMARY
+        
+  prd-update-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Check for code changes
+      id: changes
+      run: |
+        # Get changed files
+        CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+        echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        # Check if any significant changes were made
+        if echo "$CHANGED_FILES" | grep -qE "\.(py|md|json|yaml|yml)$"; then
+          echo "significant_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "significant_changes=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Suggest PRD updates
+      if: steps.changes.outputs.significant_changes == 'true'
+      run: |
+        echo "## 🔍 PRD Update Suggestions" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "The following files were changed:" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.changes.outputs.changed_files }}" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 💡 Suggested PRD Updates:" >> $GITHUB_STEP_SUMMARY
+        
+        # Analyze changes and suggest updates
+        CHANGED="${{ steps.changes.outputs.changed_files }}"
+        if echo "$CHANGED" | grep -q "agent"; then
+          echo "- Consider updating **System Architecture** section" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if echo "$CHANGED" | grep -qE "(vector|chroma|database)"; then
+          echo "- Update **Technology Stack** - database status" >> $GITHUB_STEP_SUMMARY
+          echo "- Update **Roadmap** - vector database milestones" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if echo "$CHANGED" | grep -qE "(auth|security)"; then
+          echo "- Update **Security Requirements** section" >> $GITHUB_STEP_SUMMARY
+          echo "- Update **Success Metrics** - security KPIs" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if echo "$CHANGED" | grep -q "test"; then
+          echo "- Update **Testing Requirements** section" >> $GITHUB_STEP_SUMMARY
+          echo "- Update **Roadmap** - testing milestones" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📋 PRD Update Checklist:" >> $GITHUB_STEP_SUMMARY
+        echo "- [ ] Review affected PRD sections" >> $GITHUB_STEP_SUMMARY
+        echo "- [ ] Update version number (if needed)" >> $GITHUB_STEP_SUMMARY
+        echo "- [ ] Add change log entry" >> $GITHUB_STEP_SUMMARY
+        echo "- [ ] Update roadmap milestones" >> $GITHUB_STEP_SUMMARY
+        echo "- [ ] Run `make prd-validate`" >> $GITHUB_STEP_SUMMARY
