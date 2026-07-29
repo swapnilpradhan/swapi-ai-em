@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.local
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+node_modules/
+.next/
+out/
+
+# Never commit recordings, transcripts, or OAuth material.
+data/
+media/
+*.wav
+*.m4a
+*.mp3
+credentials.json
+token.json
+*.pem
+
+# Frontend build output
+frontend/.next/
+frontend/node_modules/

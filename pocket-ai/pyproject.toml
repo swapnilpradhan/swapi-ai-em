@@ -1,0 +1,77 @@
+[project]
+name = "pocket-ai-studio"
+version = "0.1.0"
+description = "Meeting intelligence and executive coaching platform for Pocket.ai recordings"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "python-dotenv>=1.0.1",
+    "httpx>=0.27.0",
+    "structlog>=24.4.0",
+]
+
+[project.optional-dependencies]
+# Installed once the corresponding phase is implemented. Kept out of the base
+# install so the scaffold stays fast to set up and easy to test.
+storage = [
+    "sqlalchemy[asyncio]>=2.0.35",
+    "alembic>=1.13.3",
+    "asyncpg>=0.30.0",
+]
+drive = [
+    "google-api-python-client>=2.149.0",
+    "google-auth-oauthlib>=1.2.1",
+    "google-auth>=2.35.0",
+]
+llm = [
+    "anthropic>=0.39.0",
+]
+audio = [
+    "pyannote.audio>=3.3.2",
+    "torch>=2.4.0",
+    "soundfile>=0.12.1",
+]
+rag = [
+    "chromadb>=0.5.13",
+]
+slides = [
+    "python-pptx>=1.0.2",
+]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# `str, Enum` is deliberate: these enums cross the API boundary and the explicit
+# `str` mixin keeps JSON serialization behaviour obvious at the definition site.
+ignore = ["UP042"]
+
+[tool.ruff.lint.per-file-ignores]
+# Environment has to be set before the app package is imported, since settings are
+# cached at first access.
+"tests/conftest.py" = ["E402"]
