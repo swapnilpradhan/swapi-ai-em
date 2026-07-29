@@ -113,6 +113,58 @@ with a bounded purpose.
 makes payload authenticity load-bearing for data integrity, and the whole point of the
 signature check is that we would rather not bet the archive on it.
 
-**Use the official MCP server** instead of the REST API. Good fit for interactive
-exploration from an assistant, poor fit for an unattended pipeline that needs
-idempotency and explicit error handling.
+**Use the official MCP server** *instead of* the REST API — rejected, but see the
+amendment below: the framing of "instead of" was the error, not the assessment.
+
+---
+
+## Amendment (2026-07-29): MCP is complementary, not an alternative
+
+The original "Alternatives considered" dismissed Pocket's MCP server
+(`https://public.heypocketai.com/mcp`) in one line. That judgement was right about the
+pipeline and wrong about everything else, because it silently assumed there is only one
+consumer of Pocket data. There are two, with opposite requirements.
+
+| | Unattended pipeline | Interactive work |
+|---|---|---|
+| Caller | Background task | A person, or Claude on their behalf |
+| Needs | Idempotency, resumability, explicit backoff, pagination control, determinism | Ad-hoc questions, exploration, no fixed schema |
+| Right surface | **REST** | **MCP** |
+
+**REST stays the pipeline's surface.** MCP is a tool-calling protocol designed for a
+model in the loop. Driving unattended sync through it means either putting an LLM in the
+path of a mechanical job — slow, costly, nondeterministic — or writing an MCP client
+purely to make what are effectively REST calls. Neither beats `httpx`, and neither gives
+the direct control that `ExternalRef` dedupe, resumable uploads, and 429 backoff depend on.
+
+**MCP is added for interactive use**, via `.mcp.json` at the project root. Two things it
+does that the REST client cannot:
+
+1. **It closes the verification gap.** Field names, segment time units, and — most
+   importantly — whether `speaker` is populated have been open questions for three
+   commits, each blocked on someone hand-writing curl. With MCP configured, those are
+   answerable in one conversational turn against real recordings. The answer to `speaker`
+   alone decides whether pyannote, torch, and a GPU stay in the project.
+2. **It makes the corpus queryable before Phase 3 ships.** `transcript-chat` (C6) is
+   months out. MCP gives a usable subset of that value immediately, at zero build cost.
+
+### Consequences
+
+- One more surface to keep in mind, and a second place Pocket's API shape is depended
+  upon. Contained: `.mcp.json` is nine lines and holds no logic.
+- The API key reaches Pocket's own MCP endpoint — the same party that already holds the
+  data. No new trust relationship.
+- `${POCKET_API_KEY}` expansion keeps the secret out of the committed file. Claude Code
+  has open bugs where `${VAR}` in HTTP-transport *headers* is passed through literally;
+  if that bites, `claude mcp add --transport http` writes the resolved header into local
+  (uncommitted) config instead.
+- **Not** a dependency of the application. The pipeline runs identically whether or not
+  any MCP server is configured, and no backend code imports it.
+
+### Related, deliberately not done yet
+
+Pocket.ai Studio could *expose* an MCP server over its own processed corpus — grounded
+summaries, cited action items, coaching history — so Claude could query the enriched
+archive rather than raw recordings. That is a genuinely strong idea and a natural home
+for C6, but it belongs after the corpus exists and after span-cited retrieval works.
+Recorded here so the option is not rediscovered from scratch.

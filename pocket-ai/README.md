@@ -62,6 +62,11 @@ uv run pytest                 # should be green
 make dev                      # http://localhost:8000/docs
 ```
 
+Pocket's MCP server is wired up in `.mcp.json` for interactive exploration — export
+`POCKET_API_KEY` and restart Claude Code to query your real recordings. It is a
+convenience surface, not a dependency: the pipeline runs on REST regardless
+([why](docs/adr/0008-webhook-driven-ingest.md#amendment-2026-07-29-mcp-is-complementary-not-an-alternative)).
+
 The frontend is a separate app:
 
 ```bash

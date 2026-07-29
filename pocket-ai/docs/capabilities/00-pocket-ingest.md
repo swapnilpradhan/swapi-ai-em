@@ -26,6 +26,42 @@ available on all plans; transcripts, folders, and the natural-language query too
 documented as Pro-only. Since the transcript *is* the ingest payload, a free-plan key
 will likely list recordings fine and return nothing useful from the detail endpoint.
 
+## Verifying with MCP (fastest path)
+
+Pocket runs an MCP server at `https://public.heypocketai.com/mcp`. It is **not** part of
+the pipeline — see the [ADR-0008 amendment](../adr/0008-webhook-driven-ingest.md) — but
+it is by far the quickest way to answer the checklist below, because you can ask
+questions of real recordings instead of hand-writing curl.
+
+`.mcp.json` at the project root is already configured:
+
+```json
+{
+  "mcpServers": {
+    "pocket": {
+      "type": "http",
+      "url": "https://public.heypocketai.com/mcp",
+      "headers": { "Authorization": "Bearer ${POCKET_API_KEY}" }
+    }
+  }
+}
+```
+
+Export the key and restart Claude Code:
+
+```bash
+export POCKET_API_KEY=pk_your_key_here
+```
+
+Then ask directly — "pull my most recent recording and show me one raw transcript
+segment". That single answer settles whether `speaker` is populated, what the field
+names are, and whether timings are seconds or milliseconds.
+
+> **If auth fails with a literal `${POCKET_API_KEY}`:** Claude Code has open bugs where
+> `${VAR}` is not expanded inside HTTP-transport headers. Fall back to
+> `claude mcp add --transport http pocket https://public.heypocketai.com/mcp --header "Authorization: Bearer pk_..."`,
+> which writes the resolved value into local (uncommitted) config.
+
 ## ⚠️ Verification checklist
 
 **Corrected against Pocket's published documentation** — base URL and paths are no

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "pocket": {
+      "type": "http",
+      "url": "https://public.heypocketai.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${POCKET_API_KEY}"
+      }
+    }
+  }
+}

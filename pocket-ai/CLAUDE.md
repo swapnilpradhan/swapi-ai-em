@@ -75,3 +75,6 @@ contract, and the matching skill in `.claude/skills/` is how you execute it.
   text. The API returns numeric timings — that gotcha is not on the primary path.
 - Webhook development needs a public URL (`cloudflared tunnel --url http://localhost:8000`),
   or use `POST /api/v1/pocket/pull` which runs the identical path.
+- `.mcp.json` wires Pocket's MCP server for *interactive* use only. The pipeline never
+  touches it — don't add an MCP client under `services/`. Needs `POCKET_API_KEY` exported
+  and a Claude Code restart.

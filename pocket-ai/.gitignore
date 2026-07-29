@@ -25,6 +25,9 @@ media/
 credentials.json
 token.json
 *.pem
+# Claude Code writes resolved MCP config (including headers) here.
+.mcp.local.json
+.claude/settings.local.json
 
 # Frontend build output
 frontend/.next/

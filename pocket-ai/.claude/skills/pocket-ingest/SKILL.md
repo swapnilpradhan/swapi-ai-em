@@ -49,6 +49,14 @@ disappear from the project.
 The code already handles both cases. Pull one real recording and look; the answer
 materially changes the roadmap.
 
+**Fastest way to look:** Pocket's MCP server is configured in `.mcp.json`. Export
+`POCKET_API_KEY`, restart Claude Code, and ask for a raw transcript segment from a real
+recording. One answer settles `speaker`, the field names, and the time units together.
+
+MCP is for *asking questions*, not for the pipeline — ingest stays on REST. Do not add
+an MCP client to `services/`; see the ADR-0008 amendment for why the two surfaces have
+opposite requirements.
+
 ## Non-negotiables
 
 **Only the recording id is trusted from a webhook payload.** Everything else is
