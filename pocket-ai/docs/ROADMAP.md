@@ -9,10 +9,11 @@ on a foundation that loses data.
 
 ---
 
-## Phase 0 — Foundation *(this commit)*
+## Phase 0 — Foundation *(complete)*
 
 Scaffold, domain model, service protocols with working stubs, API surface, docs,
-skills. No external credentials required; full test suite green.
+skills. Webhook-driven ingest built against the Pocket API (unverified). No external
+credentials required; full test suite green.
 
 **Exit criteria**
 - [x] Domain model covers every entity in the capability specs
@@ -20,6 +21,8 @@ skills. No external credentials required; full test suite green.
 - [x] `uv run pytest` green with zero credentials
 - [x] API serves `/docs` and round-trips a meeting through the stub pipeline
 - [x] Every capability has a spec and a skill
+- [x] Ingest reworked around webhooks + API ([ADR-0008](adr/0008-webhook-driven-ingest.md))
+- [ ] **Pocket API specifics verified against a real key** ← blocks Phase 1 exit
 
 ---
 
@@ -27,12 +30,19 @@ skills. No external credentials required; full test suite green.
 
 **Goal:** No recording is ever lost. Everything else depends on this.
 
-### 1.1 Ingest
-- Audio normalization (ffmpeg → 16kHz mono WAV for processing; original preserved)
-- Content-hash meeting identity
-- Quality metrics: SNR, clipping ratio, silence ratio
-- Pocket.ai transcript parsing with timestamp drift correction
+### 1.1 Ingest — webhook-driven pull *(built, unverified against the real API)*
+- Webhook endpoint with HMAC signature verification and replay protection
+- Pull-on-event: the payload supplies only a recording id; content is re-fetched
+- Idempotent under at-least-once delivery via `ExternalRef`
+- History backfill through the same code path
+- Manual speaker tags preserved across re-sync
+- **Remaining:** verify endpoints, field names, signature scheme, and event names
+  against a real API key — checklist in `docs/capabilities/00-pocket-ingest.md`
+- Audio normalization (ffmpeg → 16kHz mono WAV) and quality metrics
 - Quarantine path for unusable recordings, with a stated reason
+
+*Superseded: the watch-folder plan and the text-transcript parser as primary path.
+File import is retained as a fallback — see [ADR-0008](adr/0008-webhook-driven-ingest.md).*
 
 ### 1.2 Google Drive export
 - OAuth device/web flow, refresh-token persistence
@@ -42,13 +52,15 @@ skills. No external credentials required; full test suite green.
 - `manifest.json` written to Drive alongside artifacts
 - Backoff and resume on quota errors
 
-### 1.3 Watch folder
-- Poll a local directory for new Pocket.ai exports
-- Auto-trigger ingest → export
-- Dead-letter queue for failures
+### 1.3 Reliability
+- Dead-letter queue for failed ingests, with retry
+- Reconciliation sweep: periodic list-vs-store diff catches missed webhooks
+- Alerting when the API key fails or deliveries stop arriving
 
 **Exit criteria**
-- Drop a file in the watch folder; audio + transcript in Drive within 5 minutes
+- Record a meeting; audio + transcript in Drive within 5 minutes, no manual step
+- Forged or stale webhook deliveries are rejected
+- Redelivery creates no duplicate meeting
 - Re-running export creates zero duplicates
 - Killing the process mid-upload and restarting resumes rather than restarts
 - Deleting the local database and re-syncing from Drive reconstructs export state
@@ -61,7 +73,13 @@ skills. No external credentials required; full test suite green.
 
 **Goal:** A transcript you can actually use six months later.
 
-### 2.1 Diarization
+### 2.1 Diarization — *likely unnecessary; verify first*
+Pocket returns an optional `speaker` per segment. When present, the pipeline already
+derives turns from it and marks diarization `SKIPPED`. **Confirm against a real
+recording before building any of the below** — if labels are reliable, this entire
+section is deleted along with pyannote, torch, and the GPU requirement.
+
+Only if labels are absent or unreliable:
 - pyannote 3.x pipeline behind the `DiarizationService` protocol
 - Turn merging and short-segment smoothing
 - Quality gate — refuse rather than emit garbage turns
@@ -95,8 +113,13 @@ skills. No external credentials required; full test suite green.
 - Action-item precision ≥ 0.85 against user-confirmed ground truth
 - Summary + action items available < 90s after ingest
 
-**Risks:** pyannote licensing friction; diarization quality on far-field/noisy audio;
-LLM cost per meeting.
+**Risks:** LLM cost per meeting; Pocket's speaker labels being less reliable than they
+appear (mitigated — the fallback path is already built and tested).
+
+**Note on overlap:** Pocket's own app produces summaries, action items, and mind maps.
+Evaluate each against the real product before building ours. The version worth having
+is the grounded, cited, exportable one — but that is a judgement to make with the
+competitor's output in hand, not in advance.
 
 ---
 

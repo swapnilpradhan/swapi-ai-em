@@ -305,3 +305,67 @@ class TestCoach:
         body = client.get("/api/v1/coach/digest").json()
         assert body["strength"] is None
         assert body["growth_edge"] is None
+
+
+class TestPocketWebhook:
+    """The HTTP surface of webhook ingest.
+
+    The default test config has no webhook secret, which is exactly the state that
+    must reject rather than accept.
+    """
+
+    def test_unsigned_delivery_is_rejected(self, client):
+        response = client.post(
+            "/api/v1/hooks/pocket",
+            json={"event": "recording.completed", "recordingId": "rec_1"},
+        )
+        assert response.status_code == 401
+
+    def test_status_reports_unconfigured(self, client):
+        body = client.get("/api/v1/hooks/pocket/status").json()
+        assert body["configured"] is False
+        assert "recording.completed" in body["known_events"]
+        assert "unverified" in body["note"]
+
+
+class TestPocketSync:
+    def test_status_reports_stub_backend(self, client):
+        body = client.get("/api/v1/pocket/status").json()
+        assert body["backend"] == "stub"
+        assert body["configured"] is False
+
+    def test_pull_runs_the_ingest_path(self, client):
+        body = client.post("/api/v1/pocket/pull", json={"recording_id": "rec_abc"}).json()
+
+        assert body["outcome"] == "processed"
+        assert body["meeting_id"]
+
+    def test_pull_is_idempotent(self, client):
+        """Webhook delivery is at-least-once; a repeat must not duplicate."""
+        first = client.post("/api/v1/pocket/pull", json={"recording_id": "rec_dup"}).json()
+        second = client.post("/api/v1/pocket/pull", json={"recording_id": "rec_dup"}).json()
+
+        assert second["outcome"] == "already_current"
+        assert second["meeting_id"] == first["meeting_id"]
+
+    def test_pulled_meeting_skips_diarization(self, client):
+        """Stub source supplies speaker labels, so we should not diarize."""
+        meeting_id = client.post("/api/v1/pocket/pull", json={"recording_id": "rec_labels"}).json()[
+            "meeting_id"
+        ]
+
+        status = client.get(f"/api/v1/meetings/{meeting_id}").json()["status"]
+        assert status["diarization"]["status"] == "skipped"
+        assert status["identification"]["status"] == "ok"
+
+    def test_backfill_runs_synchronously_when_asked(self, client):
+        body = client.post(
+            "/api/v1/pocket/backfill",
+            json={"run_in_background": False, "max_recordings": 5},
+        ).json()
+
+        assert body["status"] == "complete"
+        assert body["total"] > 0
+
+    def test_health_reports_pocket_stub(self, client):
+        assert "pocket" in client.get("/health").json()["stub_backends"]

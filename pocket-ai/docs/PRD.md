@@ -1,6 +1,6 @@
 # Pocket.ai Studio — Product Requirements
 
-**Status:** Draft v1 · **Owner:** Swapnil Pradhan · **Last updated:** 2026-07-29
+**Status:** Draft v2 · **Owner:** Swapnil Pradhan · **Last updated:** 2026-07-29
 
 ---
 
@@ -9,14 +9,15 @@
 A Pocket.ai device records meetings and produces audio plus a raw transcript.
 That is where the value stops. Today:
 
-- Recordings live on the device or in a vendor app, not in the place the user
-  actually keeps their working life (Google Drive). There is no durable,
-  browsable, portable archive.
-- The transcript is an undifferentiated wall of text. It has no speaker labels,
-  so a week later it is impossible to tell who committed to what.
-- Everything downstream — the summary, the follow-ups, the deck for the steering
-  committee — is manual re-reading and re-typing. The time cost is high enough
-  that most recordings are never revisited at all.
+- Recordings live in a vendor app, not in the place the user actually keeps their
+  working life (Google Drive). There is no durable, browsable, portable archive —
+  and the archive needs to outlive any particular vendor.
+- Attribution stops at "Speaker 1". Pocket separates voices but does not know *who*
+  they are, so a week later it is still hard to tell who committed to what, and that
+  knowledge cannot accumulate across meetings.
+- Per-meeting output stops at the meeting. Nothing tracks a commitment that recurs
+  unresolved across three consecutive meetings, or a decision that quietly reversed
+  between May and July. The deck for the steering committee is still manual.
 - The single richest corpus of the user's own communication — hundreds of hours
   of how they actually speak in high-stakes rooms — is sitting unused, while
   executive-communication coaching is generic and expensive.
@@ -63,7 +64,13 @@ foreclose it.
 Each links to a full spec. The spec is the contract; the matching skill in
 `.claude/skills/` is the execution procedure.
 
-### Phase 1 — Durability
+### Phase 1 — Capture and durability
+
+**C0. Pocket ingest** ([spec](capabilities/00-pocket-ingest.md))
+Webhook-driven pull from the Pocket API: a hook names a recording, we fetch the
+authoritative copy. Idempotent under at-least-once delivery, with history backfill
+through the same path. Upstream of everything — if this is unreliable, nothing
+downstream matters.
 
 **C1. Google Drive export** ([spec](capabilities/01-drive-export.md))
 Push audio + transcript + derived artifacts to a Drive folder tree the user owns.
@@ -73,11 +80,16 @@ and it must never lose data.
 
 ### Phase 2 — Understanding
 
-**C2. Speaker diarization and identification** ([spec](capabilities/02-speaker-identification.md))
-Two separable problems. Diarization segments audio into "speaker 1 / speaker 2"
-turns. Identification maps those anonymous labels to named people via a voiceprint
-library the user enrolls once. Manual tagging is always available and always wins
-over the model; every correction feeds back into the library.
+**C2. Speaker identification** ([spec](capabilities/02-speaker-identification.md))
+Two separable problems, and Pocket appears to solve the first. Diarization segments
+audio into "Speaker 1 / Speaker 2" turns — the API returns an optional `speaker` per
+segment, so when it is populated we skip straight past it. Identification maps those
+anonymous labels to named people via a voiceprint library the user enrolls once, and
+that is the part nobody else does. Manual tagging always wins over the model; every
+correction feeds the library.
+
+*Pending verification — see [C0](capabilities/00-pocket-ingest.md). If `speaker` is
+reliably populated, local diarization (pyannote, torch, GPU) leaves the project.*
 
 **C3. Summaries and insights** ([spec](capabilities/03-summaries-and-insights.md))
 Three altitudes — one-line, executive paragraph, full brief — plus decisions,
@@ -136,6 +148,14 @@ model run. Corrections are training signal.
 consent per person. The system stores who consented and when.
 See [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md).
 
+**Build only what Pocket does not.** Pocket's own app already does summaries, action
+items, mind maps, and cross-meeting chat. Those capabilities are specified here because
+grounded, cited, exportable versions are worth having — but each one is worth *building*
+only if Pocket's version proves inadequate in practice. The differentiators that are
+unambiguously ours: Drive as a portable archive that outlives the vendor, named speaker
+identification, consulting-grade decks, cross-meeting follow-through, and the executive
+coach. Evaluate the overlapping features against the real product before investing.
+
 **Stub-first.** Every external dependency has a working stub. The full system runs,
 and the full test suite passes, with zero credentials. This keeps development fast
 and makes the architecture honest about its seams.
@@ -168,19 +188,24 @@ and makes the architecture honest about its seams.
 | Coaching feels generic or preachy | Feature abandoned | Every point cites a real moment from the user's own recordings; no advice without evidence |
 | Drive API quota / large files | Export stalls | Resumable uploads, exponential backoff, manifest-driven resume |
 | Scope collapse under ambition | Nothing ships | Strict phase gates; Phase 1 must be boring and complete before Phase 2 starts |
+| Rebuilding what Pocket already does | Wasted months, worse result | Evaluate each overlapping capability against the real product first |
+| Pocket API changes or access is withdrawn | Ingest stops | Provider specifics centralized in 4 places; file-import path retained as escape hatch |
 
 ## 9. Open questions
 
-1. **Meeting series identity.** How does the system know Tuesday's standup is the
+1. **Is `speaker` reliably populated by Pocket?** Determines whether local diarization
+   is needed at all. *One API call answers this and it is the highest-value unknown
+   in the project.*
+2. **Meeting series identity.** How does the system know Tuesday's standup is the
    same series as last Tuesday's? Calendar integration, title heuristics, or manual
    grouping? *Leaning: manual grouping in v1, heuristics later.*
-2. **Voiceprint portability.** If a colleague enrolls, do they own their voiceprint?
+3. **Voiceprint portability.** If a colleague enrolls, do they own their voiceprint?
    What is the deletion path? *Needs a policy before Phase 2 ships.*
-3. **Slide house styles.** How closely should generated decks mimic named firms'
+4. **Slide house styles.** How closely should generated decks mimic named firms'
    visual identity? Structural idioms are clearly fine; trade-dress imitation is not.
    *Leaning: adopt the reasoning structures and generic professional styling, not
    firm logos, exact palettes, or branded templates.*
-4. **Coach cadence.** Push weekly, or pull on demand? *Leaning: weekly digest plus
+5. **Coach cadence.** Push weekly, or pull on demand? *Leaning: weekly digest plus
    on-demand deep dives.*
-5. **Retention.** How long is raw audio kept once artifacts are derived? *Needs a
+6. **Retention.** How long is raw audio kept once artifacts are derived? *Needs a
    default; leaning 12 months with user-configurable override.*

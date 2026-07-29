@@ -11,12 +11,15 @@ communicator.
 ## What it does
 
 **Capture & durability**
+- Webhook-driven ingest from the Pocket API — no manual export step. Idempotent under
+  at-least-once delivery, with history backfill through the same path.
 - Export audio + transcripts to Google Drive on a predictable folder and naming
-  scheme, with idempotent re-runs and a local manifest so nothing is exported twice.
+  scheme, with idempotent re-runs and a manifest so nothing is exported twice.
 
 **Understanding**
-- Speaker diarization (who spoke when) and speaker identification (who they are),
-  learned from a voiceprint library you build once and reuse forever.
+- Speaker identification — putting names to Pocket's anonymous "Speaker 1" labels,
+  learned from a voiceprint library you build once and reuse forever. Diarization is
+  skipped when the source already separated the voices.
 - Structured summaries at three altitudes: one-line, executive paragraph, full brief.
 - Action items with owner, due date, and confidence — extracted with span citations
   back into the transcript.
@@ -35,10 +38,11 @@ communicator.
 
 ## Status
 
-Phase 0 scaffold. The architecture, data model, and capability specs are complete
-and the API surface is real; the heavy integrations (Drive OAuth, diarization,
-RAG, slide rendering) are behind service interfaces with working stub
-implementations. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what lands when.
+Phase 0 complete. Architecture, data model, and capability specs are done, the API
+surface is real, and webhook-driven ingest is built end to end — though against an
+**unverified** reading of the Pocket API (see the note below). The heavier integrations
+(Drive OAuth, RAG, slide rendering) sit behind service interfaces with working stubs.
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what lands when.
 
 ## Quick start
 
@@ -72,6 +76,7 @@ pocket-ai/
 ├── backend/app/
 │   ├── models/            Pydantic domain model — the shared vocabulary
 │   ├── services/          Capability implementations behind protocols
+│   │                      pocket.py · webhooks.py · sync.py — the ingest path
 │   ├── api/routes/        HTTP surface
 │   └── core/              Config, logging
 ├── frontend/              Next.js app
@@ -92,6 +97,14 @@ These are load-bearing; read [`docs/adr/`](docs/adr/) before changing them.
    is testable — with zero credentials.
 4. **Local-first for sensitive audio.** Voiceprints and raw audio never leave your
    infrastructure unless you explicitly export them.
+5. **Webhook payloads are not trusted.** A delivery supplies a recording id; the
+   content is always re-fetched from the API. Signature verification fails closed.
+
+> **Note:** the Pocket API specifics (endpoint paths, field names, signature scheme,
+> event names) are **unverified** — the docs site blocks automated fetching. They are
+> centralized in four places so correcting them is a contained edit. Work the checklist
+> in [`docs/capabilities/00-pocket-ingest.md`](docs/capabilities/00-pocket-ingest.md)
+> against a real API key before relying on this.
 
 ## Extracting to a standalone repo
 

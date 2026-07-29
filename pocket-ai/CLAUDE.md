@@ -55,6 +55,13 @@ contract, and the matching skill in `.claude/skills/` is how you execute it.
   acceptance fails with an opaque 401.
 - Google Drive OAuth needs the redirect URI registered in Cloud Console to match
   `GOOGLE_OAUTH_REDIRECT_URI` byte-for-byte, trailing slash included.
-- Pocket.ai's raw transcript has no speaker labels and its timestamps drift on
-  long recordings — always re-anchor to the audio, never trust transcript time
-  as absolute.
+- **Pocket returns an optional `speaker` per segment.** When present the pipeline
+  skips diarization entirely (`SKIPPED`, not failed) and runs identification only.
+  Whether it is reliably populated is the highest-value open question in the project —
+  if it is, pyannote/torch/GPU leave entirely. See ADR-0008.
+- `speaker` becomes `speaker_label`, never `speaker_id`. Upstream says which *voice*,
+  not which *person*.
+- Timestamp drift and the `[00:01:23]` regex parser only ever applied to hand-exported
+  text. The API returns numeric timings — that gotcha is not on the primary path.
+- Webhook development needs a public URL (`cloudflared tunnel --url http://localhost:8000`),
+  or use `POST /api/v1/pocket/pull` which runs the identical path.

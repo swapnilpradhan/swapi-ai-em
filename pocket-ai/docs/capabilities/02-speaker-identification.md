@@ -11,9 +11,25 @@ Turn "a wall of text" into "Priya said this, you said that". This is the capabil
 that makes a transcript useful six months later, and everything downstream —
 action-item ownership, corpus chat filters, spoken-English coaching — depends on it.
 
+## Pocket may already do stage 1
+
+The API returns an optional `speaker` per transcript segment. When it is populated the
+source has already decided where one voice stops and the next begins, and the pipeline
+skips this stage entirely — `turns_from_transcript_labels` derives turns from the
+labels, diarization is marked `SKIPPED` (not failed; it wasn't needed), and
+identification runs as normal.
+
+**Verify this before building anything below** — checklist in
+[C0](00-pocket-ingest.md). If labels are reliable, pyannote, torch, and the GPU
+requirement leave the project and this capability is identification only.
+
+The two-stage split from [ADR-0003](../adr/0003-diarization-separate-from-identification.md)
+is what makes that substitution free: whoever produces the turns, identification does
+not care.
+
 ## Two stages
 
-### Stage 1: Diarization
+### Stage 1: Diarization *(only if the source gives no labels)*
 
 Audio in, anonymous speaker turns out.
 

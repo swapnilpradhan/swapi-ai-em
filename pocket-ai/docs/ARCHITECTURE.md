@@ -8,11 +8,16 @@ re-runnable against stored inputs, which matters enormously: when the summarizer
 improves, you re-summarize three years of meetings without re-uploading a byte.
 
 ```
-Pocket.ai device
-      │  audio + raw transcript
+Pocket cloud
+      │  webhook: "recording X changed"
       ▼
 ┌─────────────┐
-│   INGEST    │  normalize audio, validate quality, assign meeting_id
+│   WEBHOOK   │  verify signature → extract id → 202 (fast)
+└──────┬──────┘
+       │  pull authoritative copy from the API
+       ▼
+┌─────────────┐
+│   INGEST    │  map segments, dedupe on ExternalRef, assign meeting_id
 └──────┬──────┘
        │
        ├──────────────────────────────► ┌──────────────┐
@@ -20,7 +25,8 @@ Pocket.ai device
        │                                └──────────────┘     (system of record)
        ▼
 ┌─────────────┐
-│ DIARIZATION │  anonymous turns  ──►  IDENTIFICATION  ──► named speakers
+│ DIARIZATION │  SKIPPED when the source already labelled speakers
+│  (if needed)│  anonymous turns  ──►  IDENTIFICATION  ──► named speakers
 └──────┬──────┘                         (voiceprint library + manual tags)
        │  attributed transcript
        ▼
@@ -113,7 +119,8 @@ slide → render*, with the structure reviewable before rendering.
 
 | Stage | Input | Output | Idempotency key |
 |-------|-------|--------|-----------------|
-| Ingest | audio file + raw transcript | `Meeting`, `AudioRef` | content hash of audio |
+| Webhook | signed delivery | recording id | — (verify, then pull) |
+| Ingest | Pocket recording + transcript | `Meeting`, `AudioRef` | `ExternalRef`, then content hash |
 | Export | `Meeting` + `Artifact` | `ExportResult` (Drive file id) | `(meeting_id, artifact_kind)` |
 | Diarize | `AudioRef` | `list[SpeakerTurn]` | `audio_hash` |
 | Identify | turns + voiceprints | `list[SpeakerTurn]` with `speaker_id` | `(audio_hash, library_version)` |

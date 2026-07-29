@@ -17,9 +17,31 @@ class MeetingSource(str, Enum):
 
 
 class TranscriptSource(str, Enum):
-    POCKET_AI_RAW = "pocket_ai_raw"
+    POCKET_API = "pocket_api"  # structured segments pulled from the Pocket API
+    POCKET_AI_RAW = "pocket_ai_raw"  # text export parsed by hand
     REDIARIZED = "rediarized"
     MANUALLY_CORRECTED = "manually_corrected"
+
+
+class ExternalRef(BaseModel):
+    """Where a meeting came from in the upstream system.
+
+    This is the cheap dedupe key. A webhook redelivery names a recording id, and we
+    need to decide "already have it" before spending an audio download on computing
+    the content hash. Provenance also matters for re-sync: ``updated_at`` tells us
+    whether the upstream copy has moved on.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    provider: str = "pocket"
+    external_id: str
+    updated_at: datetime | None = None
+    fetched_at: datetime | None = None
+
+    @property
+    def key(self) -> str:
+        return f"{self.provider}:{self.external_id}"
 
 
 class SpeakerSource(str, Enum):
@@ -88,7 +110,19 @@ class Transcript(BaseModel):
 
     @property
     def is_attributed(self) -> bool:
+        """Whether segments are tied to *named* speakers in our roster."""
         return any(s.speaker_id is not None for s in self.segments)
+
+    @property
+    def has_speaker_labels(self) -> bool:
+        """Whether the source already separated voices, even if unnamed.
+
+        Pocket returns an optional ``speaker`` per segment. When it is present the
+        expensive half of the work — deciding where one voice stops and the next
+        begins — is already done, and only identification (label → named person)
+        remains. See docs/adr/0008-webhook-driven-ingest.md.
+        """
+        return any(s.speaker_label for s in self.segments)
 
     def text_for_span(self, span: TranscriptSpan) -> str:
         window = [s for s in self.segments if span.segment_start <= s.index <= span.segment_end]
@@ -143,6 +177,9 @@ class Meeting(BaseModel):
     transcript: Transcript = Field(default_factory=Transcript)
     series_id: str | None = None
     source: MeetingSource = MeetingSource.POCKET_AI
+    # None means this arrived by file import rather than from the upstream API.
+    external_ref: ExternalRef | None = None
+    tags: list[str] = Field(default_factory=list)
     participants: list[Participant] = Field(default_factory=list)
     turns: list[SpeakerTurn] = Field(default_factory=list)
     status: ProcessingStatus = Field(default_factory=ProcessingStatus)

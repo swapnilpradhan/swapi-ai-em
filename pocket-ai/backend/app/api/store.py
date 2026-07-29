@@ -17,12 +17,34 @@ class MemoryStore:
         self.meetings: dict[str, Meeting] = {}
         self.insights: dict[str, MeetingInsights] = {}
         self.library = VoiceprintLibrary()
+        # provider:external_id -> meeting_id. The cheap dedupe index: a webhook
+        # redelivery can be resolved without fetching or hashing anything.
+        self._by_external: dict[str, str] = {}
 
     def put_meeting(self, meeting: Meeting) -> None:
         self.meetings[meeting.id] = meeting
+        if meeting.external_ref:
+            self._by_external[meeting.external_ref.key] = meeting.id
 
     def get_meeting(self, meeting_id: str) -> Meeting | None:
         return self.meetings.get(meeting_id)
+
+    def get_by_external(self, provider: str, external_id: str) -> Meeting | None:
+        meeting_id = self._by_external.get(f"{provider}:{external_id}")
+        return self.meetings.get(meeting_id) if meeting_id else None
+
+    def is_current(self, provider: str, external_id: str, updated_at) -> bool:
+        """Whether we already hold this recording at or beyond the given revision.
+
+        Lets a redelivery short-circuit while still letting a genuine upstream edit
+        through — the point of storing ``updated_at`` on the ref.
+        """
+        existing = self.get_by_external(provider, external_id)
+        if existing is None or existing.external_ref is None:
+            return False
+        if updated_at is None or existing.external_ref.updated_at is None:
+            return True  # no revision info either side: treat presence as current
+        return existing.external_ref.updated_at >= updated_at
 
     def list_meetings(self) -> list[Meeting]:
         return sorted(self.meetings.values(), key=lambda m: m.occurred_at, reverse=True)
@@ -48,6 +70,7 @@ class MemoryStore:
     def clear(self) -> None:
         self.meetings.clear()
         self.insights.clear()
+        self._by_external.clear()
         self.library = VoiceprintLibrary()
 
 

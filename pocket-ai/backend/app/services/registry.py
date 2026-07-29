@@ -21,6 +21,7 @@ from .diarization import (
 )
 from .insights import LLMInsightsService, StubInsightsService
 from .llm import AnthropicLLMService, StubLLMService
+from .pocket import HttpPocketClient, StubPocketClient
 from .retrieval import GroundedChatService, StubRetrievalService
 from .storage import DriveStorageService, StubStorageService
 from .validation import DefaultSpanValidator
@@ -41,6 +42,11 @@ class ServiceRegistry:
             DriveStorageService(settings)
             if settings.storage_backend is Backend.REAL
             else StubStorageService(settings)
+        )
+        self.pocket = (
+            HttpPocketClient(settings)
+            if settings.pocket_backend is Backend.REAL
+            else StubPocketClient(settings)
         )
         if settings.diarization_backend is Backend.REAL:
             self.diarization = PyannoteDiarizationService(settings)

@@ -58,6 +58,7 @@ from .insights import (
 from .meeting import (
     AudioQuality,
     AudioRef,
+    ExternalRef,
     Meeting,
     MeetingSource,
     Participant,
@@ -106,6 +107,7 @@ __all__ = [
     "DrillKind",
     "DueDate",
     "ExportManifest",
+    "ExternalRef",
     "ExportResult",
     "ExportStatus",
     "Filters",

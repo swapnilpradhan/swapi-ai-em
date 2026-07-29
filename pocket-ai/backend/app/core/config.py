@@ -46,6 +46,17 @@ class Settings(BaseSettings):
     llm_model_reasoning: str = "claude-opus-5"
     llm_model_fast: str = "claude-haiku-4-5-20251001"
 
+    # --- Pocket API (source of recordings) ---
+    pocket_api_key: str = ""
+    pocket_api_base_url: str = "https://api.heypocketai.com"
+    # Shared secret for verifying webhook signatures. Without it the webhook refuses
+    # every delivery rather than trusting unauthenticated callers.
+    pocket_webhook_secret: str = ""
+    pocket_webhook_signature_header: str = "X-Pocket-Signature"
+    pocket_webhook_timestamp_header: str = "X-Pocket-Timestamp"
+    # Deliveries older than this are rejected, so a captured request cannot be replayed.
+    pocket_webhook_tolerance_seconds: int = 300
+
     # Diarization
     huggingface_token: str = ""
     diarization_backend: Backend = Backend.STUB
@@ -67,6 +78,14 @@ class Settings(BaseSettings):
         return Backend.REAL if self.anthropic_api_key else Backend.STUB
 
     @property
+    def pocket_backend(self) -> Backend:
+        return Backend.REAL if self.pocket_api_key else Backend.STUB
+
+    @property
+    def webhook_configured(self) -> bool:
+        return bool(self.pocket_webhook_secret)
+
+    @property
     def is_development(self) -> bool:
         return self.app_env == "development"
 
@@ -81,6 +100,8 @@ class Settings(BaseSettings):
         Surfaced in API responses so stub output is never mistaken for real results.
         """
         active = []
+        if self.pocket_backend is Backend.STUB:
+            active.append("pocket")
         if self.storage_backend is Backend.STUB:
             active.append("storage")
         if self.llm_backend is Backend.STUB:

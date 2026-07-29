@@ -15,6 +15,7 @@ from ..models import (
     MeetingInsights,
     SectionStatus,
     SpeakerSource,
+    SpeakerTurn,
     StageStatus,
     TranscriptSegment,
     VoiceprintLibrary,
@@ -32,6 +33,40 @@ def _ok() -> StageStatus:
 
 def _failed(reason: str) -> StageStatus:
     return StageStatus(status=SectionStatus.FAILED, reason=reason, completed_at=datetime.now(UTC))
+
+
+def _skipped(reason: str) -> StageStatus:
+    """Not run because it wasn't needed — distinct from failure, and a good outcome."""
+    return StageStatus(status=SectionStatus.SKIPPED, reason=reason, completed_at=datetime.now(UTC))
+
+
+def turns_from_transcript_labels(meeting: Meeting) -> list[SpeakerTurn]:
+    """Derive speaker turns from labels the source already provided.
+
+    Consecutive segments sharing a label collapse into one turn, which is the same
+    shape diarization would have produced — so identification and everything
+    downstream cannot tell the difference.
+    """
+    turns: list[SpeakerTurn] = []
+
+    for seg in meeting.transcript.segments:
+        if not seg.speaker_label:
+            continue
+        if turns and turns[-1].label == seg.speaker_label:
+            turns[-1] = turns[-1].model_copy(update={"end_ms": max(turns[-1].end_ms, seg.end_ms)})
+        else:
+            turns.append(
+                SpeakerTurn(
+                    start_ms=seg.start_ms,
+                    end_ms=seg.end_ms,
+                    label=seg.speaker_label,
+                    # Upstream is authoritative about *where the voice changed*; our
+                    # own model had no say, so confidence is theirs, not ours.
+                    confidence=None,
+                )
+            )
+
+    return turns
 
 
 def apply_turns_to_transcript(meeting: Meeting) -> Meeting:
@@ -101,11 +136,20 @@ async def process(
         meeting.status.export = _failed(str(exc))
 
     # Diarization and identification: failure here costs attribution, nothing else.
+    #
+    # When the source already separated voices — Pocket returns an optional `speaker`
+    # per segment — the expensive half is done and we skip straight to identification.
+    # Splitting these two stages (ADR-0003) is what makes that short-circuit possible.
     try:
-        turns = await registry.diarization.diarize(meeting)
+        if meeting.transcript.has_speaker_labels:
+            turns = turns_from_transcript_labels(meeting)
+            meeting.status.diarization = _skipped("source provided speaker labels")
+        else:
+            turns = await registry.diarization.diarize(meeting)
+            meeting.status.diarization = _ok()
+
         meeting.turns = await registry.identification.identify(turns, library)
         meeting = apply_turns_to_transcript(meeting)
-        meeting.status.diarization = _ok()
         meeting.status.identification = _ok()
     except DiarizationRefused as exc:
         log.info("pipeline.diarization_refused", meeting_id=meeting.id, reason=str(exc))

@@ -11,7 +11,7 @@ See docs/adr/0005-stub-first-service-protocols.md.
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from ..models import (
     Artifact,
@@ -33,6 +33,22 @@ from ..models import (
     TranscriptSpan,
     VoiceprintLibrary,
 )
+
+if TYPE_CHECKING:
+    from .pocket import PocketRecording
+
+
+@runtime_checkable
+class PocketClient(Protocol):
+    """Source of recordings. See docs/capabilities/00-pocket-ingest.md."""
+
+    async def get_recording(self, recording_id: str) -> PocketRecording: ...
+
+    async def list_recordings(
+        self, *, limit: int = 50, cursor: str | None = None
+    ) -> tuple[list[PocketRecording], str | None]: ...
+
+    async def download_audio(self, recording: PocketRecording) -> bytes | None: ...
 
 
 @runtime_checkable

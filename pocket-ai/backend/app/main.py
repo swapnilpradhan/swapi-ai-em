@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.routes import chat, coach, drive, meetings, slides, speakers
+from .api.routes import chat, coach, drive, hooks, meetings, pocket, slides, speakers
 from .core.config import get_settings
 from .core.logging import configure_logging, get_logger
 from .services.registry import get_registry
@@ -45,7 +45,7 @@ app.add_middleware(
 )
 
 API_PREFIX = "/api/v1"
-for module in (meetings, drive, speakers, chat, slides, coach):
+for module in (meetings, pocket, hooks, drive, speakers, chat, slides, coach):
     app.include_router(module.router, prefix=API_PREFIX)
 
 

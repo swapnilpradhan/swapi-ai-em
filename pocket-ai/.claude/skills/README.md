@@ -6,6 +6,7 @@ skill to match, not the other way round.
 
 | Skill | Capability | Phase | Spec |
 |-------|-----------|-------|------|
+| `pocket-ingest` | Webhook + API ingest | 1 | [00](../../docs/capabilities/00-pocket-ingest.md) |
 | `drive-export` | Google Drive export | 1 | [01](../../docs/capabilities/01-drive-export.md) |
 | `speaker-identification` | Diarization + speaker ID | 2 | [02](../../docs/capabilities/02-speaker-identification.md) |
 | `meeting-summary` | Summaries and insights | 2 | [03](../../docs/capabilities/03-summaries-and-insights.md) |
