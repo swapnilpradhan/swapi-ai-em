@@ -57,6 +57,8 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what lands when.
 ```bash
 cd pocket-ai
 cp .env.example .env          # fill in what you have; stubs cover the rest
+                              # POCKET_API_KEY  -> docs/SETUP_POCKET.md
+                              # GOOGLE_CLIENT_* -> docs/SETUP_DRIVE.md
 uv sync --extra dev
 uv run pytest                 # should be green
 make dev                      # http://localhost:8000/docs
@@ -83,6 +85,7 @@ pocket-ai/
 │   ├── DATA_MODEL.md
 │   ├── ROADMAP.md
 │   ├── SECURITY_PRIVACY.md
+│   ├── SETUP_POCKET.md    Authenticating your Pocket account
 │   ├── SETUP_DRIVE.md     Connecting a real Google account
 │   ├── adr/               Architecture decision records
 │   └── capabilities/      One spec per feature — the contract each skill implements

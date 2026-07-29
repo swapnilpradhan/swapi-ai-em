@@ -11,8 +11,13 @@ everything — if ingest is unreliable, nothing downstream matters.
 
 ## Getting an API key
 
+Full walkthrough: [`docs/SETUP_POCKET.md`](../SETUP_POCKET.md).
+
 **Pocket Settings → Developer → API Keys.** The key starts with `pk_`, and can be
-regenerated from the same screen.
+regenerated from the same screen. Pocket uses a static key, not OAuth — creating the key
+*is* the grant, and it carries no scopes. Verify it with
+`GET /api/v1/pocket/status`, which round-trips to Pocket and reports whether transcripts
+and speaker labels are actually reachable.
 
 ```bash
 POCKET_API_KEY=pk_your_key_here

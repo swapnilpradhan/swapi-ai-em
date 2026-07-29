@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field
 
 from ...core.config import Backend, get_settings
+from ...services.pocket import check_access
 from ...services.registry import get_registry
 from ...services.sync import IngestOutcome, backfill, ingest_recording
 from ..store import get_store
@@ -76,15 +77,25 @@ async def run_backfill(request: BackfillRequest, background: BackgroundTasks) ->
 
 
 @router.get("/status")
-async def status() -> dict:
+async def status(verify: bool = True) -> dict:
+    """Configuration state, plus a live check that the key actually works.
+
+    "Is the key set" and "does the key work" are different questions, and only the
+    second one is useful when authentication is failing. Pass ``?verify=false`` to
+    skip the round trip.
+    """
     settings = get_settings()
-    return {
+    body: dict = {
         "backend": settings.pocket_backend.value,
         "configured": settings.pocket_backend is Backend.REAL,
         "base_url": settings.pocket_api_base_url,
         "webhook_configured": settings.webhook_configured,
         "note": (
-            "Endpoint paths and field names are unverified against Pocket's spec; "
-            "they are centralized in backend/app/services/pocket.py (PocketRoutes)."
+            "Field names and the webhook signature scheme are unverified against "
+            "Pocket's spec; they are centralized in services/pocket.py and "
+            "services/webhooks.py."
         ),
     }
+    if verify:
+        body["check"] = await check_access(get_registry().pocket)
+    return body

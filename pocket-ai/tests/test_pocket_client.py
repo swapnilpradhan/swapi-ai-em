@@ -7,6 +7,7 @@ a missing optional field, never to a failed ingest.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -218,3 +219,105 @@ class TestMapping:
             segments=first.segments,
         )
         assert canonical_transcript_hash(first) != canonical_transcript_hash(second)
+
+
+class TestCheckAccess:
+    """`check_access` is the answer to "did my auth work?" — the negative paths matter."""
+
+    async def test_reports_shape_not_content(self, settings):
+        from backend.app.services.pocket import check_access
+
+        result = await check_access(StubPocketClient(settings))
+
+        assert result["ok"] is True
+        assert result["authenticated"] is True
+        assert result["speaker_labels_present"] is True
+        assert result["segment_count"] > 0
+        # A diagnostic must never leak transcript text.
+        assert "text" not in json.dumps(result).lower() or "context" in json.dumps(result)
+        assert not any("migration timeline" in str(v) for v in result.values())
+
+    async def test_bad_key_is_reported_not_raised(self, settings):
+        from backend.app.services.pocket import PocketAuthError, check_access
+
+        class BadKey:
+            async def list_recordings(self, **kwargs):
+                raise PocketAuthError("Pocket API rejected the key (401)")
+
+        result = await check_access(BadKey())
+
+        assert result["ok"] is False
+        assert result["authenticated"] is False
+        assert "Developer" in result["hint"]
+
+    async def test_empty_account_is_not_a_failure(self, settings):
+        from backend.app.services.pocket import check_access
+
+        class Empty:
+            async def list_recordings(self, **kwargs):
+                return [], None
+
+        result = await check_access(Empty())
+
+        assert result["ok"] is True
+        assert result["recordings_visible"] == 0
+
+    async def test_missing_transcripts_hints_at_the_plan(self, settings):
+        """The Pro gate looks exactly like a parser bug; say so explicitly."""
+        from backend.app.services.pocket import check_access
+
+        bare = PocketRecording(
+            recording_id="r1",
+            title="Untitled",
+            occurred_at=datetime(2026, 7, 29, tzinfo=UTC),
+            duration_seconds=60.0,
+            segments=[],
+        )
+
+        class NoTranscript:
+            async def list_recordings(self, **kwargs):
+                return [bare], None
+
+            async def get_recording(self, recording_id):
+                return bare
+
+        result = await check_access(NoTranscript())
+
+        assert result["ok"] is True
+        assert result["transcript_accessible"] is False
+        assert "Pocket Pro" in result["hint"]
+
+    async def test_unlabelled_transcript_hints_at_diarization(self, settings):
+        from backend.app.services.pocket import check_access
+
+        unlabelled = PocketRecording(
+            recording_id="r1",
+            title="Untitled",
+            occurred_at=datetime(2026, 7, 29, tzinfo=UTC),
+            duration_seconds=60.0,
+            segments=[PocketSegment(text="hello", start_ms=0, end_ms=1000)],
+        )
+
+        class Unlabelled:
+            async def list_recordings(self, **kwargs):
+                return [unlabelled], None
+
+            async def get_recording(self, recording_id):
+                return unlabelled
+
+        result = await check_access(Unlabelled())
+
+        assert result["speaker_labels_present"] is False
+        assert "diarization" in result["hint"]
+
+    async def test_network_failure_does_not_raise(self, settings):
+        from backend.app.services.pocket import check_access
+
+        class Broken:
+            async def list_recordings(self, **kwargs):
+                raise RuntimeError("connection refused")
+
+        result = await check_access(Broken())
+
+        assert result["ok"] is False
+        assert "connection refused" in result["reason"]

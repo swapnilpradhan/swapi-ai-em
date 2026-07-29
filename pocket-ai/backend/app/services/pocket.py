@@ -360,3 +360,81 @@ class HttpPocketClient:
                 log.warning("pocket.audio_download_failed", status=response.status_code)
                 return None
             return response.content
+
+
+def _describe(recording: PocketRecording, segments_ok: bool) -> dict:
+    """Report *shape*, never content.
+
+    Deliberately booleans and counts only: this is a diagnostic endpoint, and
+    transcript text has no business in a status response or a log line.
+    """
+    return {
+        "transcript_accessible": segments_ok,
+        "segment_count": len(recording.segments),
+        "speaker_labels_present": recording.has_speaker_labels,
+        "has_audio_url": bool(recording.audio_url),
+        "has_summary": bool(recording.summary),
+        "occurred_at": recording.occurred_at.isoformat(),
+        "duration_seconds": recording.duration_seconds,
+    }
+
+
+async def check_access(client) -> dict:
+    """Verify a key actually works, and report what it can reach.
+
+    Answers the two questions that block Phase 1 in one round trip: does the key
+    authenticate, and does this plan return transcripts. Also reports whether
+    ``speaker`` is populated, which decides whether local diarization stays in the
+    project at all.
+    """
+    try:
+        recordings, _ = await client.list_recordings(limit=1)
+    except PocketAuthError as exc:
+        return {
+            "ok": False,
+            "authenticated": False,
+            "reason": str(exc),
+            "hint": "Check POCKET_API_KEY — Pocket Settings → Developer → API Keys.",
+        }
+    except Exception as exc:  # noqa: BLE001 - a diagnostic must never raise
+        return {"ok": False, "authenticated": None, "reason": str(exc)}
+
+    if not recordings:
+        return {
+            "ok": True,
+            "authenticated": True,
+            "recordings_visible": 0,
+            "hint": "Key works, but no recordings were returned. Record something first.",
+        }
+
+    sample = recordings[0]
+    try:
+        detail = await client.get_recording(sample.recording_id)
+        segments_ok = bool(detail.segments)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": True,
+            "authenticated": True,
+            "recordings_visible": len(recordings),
+            "transcript_accessible": False,
+            "reason": str(exc),
+            "hint": "Listing works but the detail call failed — transcripts may need Pocket Pro.",
+        }
+
+    result = {
+        "ok": True,
+        "authenticated": True,
+        "recordings_visible": len(recordings),
+        **_describe(detail, segments_ok),
+    }
+    if not segments_ok:
+        result["hint"] = (
+            "Authenticated, but no transcript segments came back. Transcript access "
+            "appears to require Pocket Pro — check your plan before debugging the parser."
+        )
+    elif not detail.has_speaker_labels:
+        result["hint"] = (
+            "Transcripts work but carry no speaker labels, so local diarization stays "
+            "on the critical path. See docs/capabilities/02-speaker-identification.md."
+        )
+    return result

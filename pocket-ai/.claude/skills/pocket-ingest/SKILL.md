@@ -16,7 +16,11 @@ arriving on the detail response via `?include=all`. **Field names, the signature
 scheme, and event names are still inferred** — `docs.heypocketai.com` blocks automated
 fetching, so those came from documentation summaries.
 
-Getting a key: **Pocket Settings → Developer → API Keys** (starts with `pk_`).
+Getting a key: **Pocket Settings → Developer → API Keys** (starts with `pk_`) —
+walkthrough in `docs/SETUP_POCKET.md`. Pocket uses a static key, not OAuth: creating it
+*is* the grant, and it has no scopes. `GET /api/v1/pocket/status` round-trips to Pocket
+and reports whether the key authenticates, whether transcripts are reachable, and whether
+`speaker` is populated — that one call answers most of the checklist below.
 Transcript access appears to be Pro-gated — a free-plan key will likely list recordings
 but return no segments, which looks exactly like a parser bug and isn't one.
 
