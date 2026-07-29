@@ -33,14 +33,43 @@ exists, anything holding it can read your recordings.
 3. Create a key. It starts with `pk_`.
 4. Copy it immediately — most providers show a key once.
 
+### Putting it in `.env`
+
+There is no `.env` in the repo — it is gitignored, so you create it from the template.
+
+**Recommended.** The helper reads the value with the terminal echo off, so the key never
+appears on screen, in `~/.bash_history`, or in the process list:
+
 ```bash
-# .env
-POCKET_API_KEY=pk_your_key_here
-POCKET_API_BASE_URL=https://public.heypocketai.com
+cd pocket-ai
+make env KEY=POCKET_API_KEY      # prompts; input hidden
 ```
+
+It creates `.env` from `.env.example` on first run, updates the key in place on later
+runs (no duplicate lines), and leaves the file at `0600`.
+
+**Manual, if you prefer.** Note the leading space — in most shells that keeps the
+command out of history:
+
+```bash
+cd pocket-ai
+cp .env.example .env
+chmod 600 .env
+ echo 'POCKET_API_KEY=pk_your_key_here' >> .env    # leading space, deliberate
+```
+
+Or just open `.env` in an editor and fill in the blank next to `POCKET_API_KEY=`.
 
 `.env` is gitignored. Never commit the key, and never paste it into a file that gets
 shared — unlike a Drive token, it has no scope limiting what it can reach.
+
+### ⚠️ Not in a remote Claude Code session
+
+If you are working in a remote/cloud Claude Code session, do **not** put your real key
+in that container's `.env`. The container is ephemeral and is reclaimed after inactivity,
+so the file is lost anyway — and a key pasted into chat ends up in the session
+transcript. Set it on the machine that actually runs the app. If you do use a real key in
+a throwaway environment to test something, regenerate it afterwards.
 
 ## Verifying it worked
 

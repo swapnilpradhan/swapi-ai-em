@@ -6,6 +6,14 @@ help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
+.PHONY: env
+env: ## Set a secret in .env without it hitting your shell history (make env KEY=POCKET_API_KEY)
+	@./scripts/set-secret.sh $(or $(KEY),POCKET_API_KEY)
+
+.PHONY: check-auth
+check-auth: ## Verify the Pocket key actually works
+	@curl -s localhost:8000/api/v1/pocket/status | python3 -m json.tool
+
 .PHONY: install
 install: ## Install base + dev dependencies
 	$(UV) sync --extra dev
