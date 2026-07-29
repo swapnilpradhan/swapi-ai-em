@@ -143,28 +143,3 @@ class StubStorageService:
             suffix = Path(meeting.audio.original_filename).suffix or ".m4a"
             return f"audio{suffix}"
         return artifact.filename
-
-
-class DriveStorageService:
-    """Google Drive implementation.
-
-    Lands in Phase 1. Requires the ``drive`` extra. The behavioural contract is
-    identical to the stub — folder naming, idempotency on
-    ``(meeting_id, artifact_kind)``, content-hash skip, manifest written to Drive,
-    resumable uploads for audio, backoff on 403/5xx.
-    """
-
-    def __init__(self, settings: Settings) -> None:
-        self.settings = settings
-
-    async def ensure_meeting_folder(self, meeting: Meeting) -> str:
-        raise NotImplementedError("Phase 1 — see docs/capabilities/01-drive-export.md")
-
-    async def export(self, meeting: Meeting, artifact: Artifact) -> ExportResult:
-        raise NotImplementedError("Phase 1 — see docs/capabilities/01-drive-export.md")
-
-    async def export_all(self, meeting: Meeting, artifacts: list[Artifact]) -> ExportManifest:
-        raise NotImplementedError("Phase 1 — see docs/capabilities/01-drive-export.md")
-
-    async def read_manifest(self, meeting_id: str) -> ExportManifest | None:
-        raise NotImplementedError("Phase 1 — see docs/capabilities/01-drive-export.md")

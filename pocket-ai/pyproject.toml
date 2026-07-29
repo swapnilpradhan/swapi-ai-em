@@ -22,11 +22,9 @@ storage = [
     "alembic>=1.13.3",
     "asyncpg>=0.30.0",
 ]
-drive = [
-    "google-api-python-client>=2.149.0",
-    "google-auth-oauthlib>=1.2.1",
-    "google-auth>=2.35.0",
-]
+# Drive needs no extra: the OAuth flow and the Drive v3 REST API are driven
+# directly through httpx, which is already a base dependency. Pulling in
+# google-api-python-client would add a synchronous client to an async service layer.
 llm = [
     "anthropic>=0.39.0",
 ]

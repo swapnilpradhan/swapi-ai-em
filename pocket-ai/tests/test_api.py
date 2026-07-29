@@ -215,8 +215,26 @@ class TestDrive:
         recovered = client.get(f"/api/v1/drive/manifest/{meeting_id}").json()
         assert recovered["meeting_id"] == meeting_id
 
-    def test_oauth_is_not_implemented_yet(self, client):
-        assert client.get("/api/v1/drive/oauth/start").status_code == 501
+    def test_oauth_start_without_client_config_is_rejected(self, client):
+        """No OAuth client configured, so there is nothing to redirect to."""
+        response = client.get("/api/v1/drive/oauth/start", follow_redirects=False)
+        assert response.status_code == 400
+        assert "GOOGLE_CLIENT_ID" in response.json()["detail"]
+
+    def test_oauth_callback_without_code_reports_the_problem(self, client):
+        response = client.get("/api/v1/drive/oauth/callback")
+        assert response.status_code == 400
+        assert "authorization code" in response.text
+
+    def test_oauth_callback_surfaces_a_declined_consent(self, client):
+        response = client.get("/api/v1/drive/oauth/callback?error=access_denied")
+        assert response.status_code == 400
+        assert "access_denied" in response.text
+
+    def test_status_reports_unauthorized_when_no_token_exists(self, client):
+        body = client.get("/api/v1/drive/status").json()
+        assert body["authorized"] is False
+        assert "check" not in body  # nothing to round-trip to Drive about
 
 
 class TestChat:

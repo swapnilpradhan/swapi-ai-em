@@ -43,6 +43,9 @@ contract, and the matching skill in `.claude/skills/` is how you execute it.
 |-------------------------------------|--------------------------------------------------|
 | Change what a meeting record holds  | `backend/app/models/meeting.py`                   |
 | Add an export target                | `backend/app/services/storage.py`                 |
+| Change Drive OAuth                  | `backend/app/services/google_auth.py`             |
+| Change Drive REST calls             | `backend/app/services/drive_client.py`            |
+| Change the Drive folder contract    | `backend/app/services/drive_storage.py`           |
 | Change how speakers are identified  | `backend/app/services/diarization.py`             |
 | Change summary shape or prompt      | `backend/app/services/insights.py` + capability spec |
 | Add an API endpoint                 | `backend/app/api/routes/`                         |
@@ -55,6 +58,13 @@ contract, and the matching skill in `.claude/skills/` is how you execute it.
   acceptance fails with an opaque 401.
 - Google Drive OAuth needs the redirect URI registered in Cloud Console to match
   `GOOGLE_OAUTH_REDIRECT_URI` byte-for-byte, trailing slash included.
+- Google issues a refresh token only with `access_type=offline` **and** `prompt=consent`.
+  A refresh *response* normally omits `refresh_token` — never let it overwrite the
+  stored one, or the durable grant is gone.
+- Drive query values are single-quoted: a title like `Priya's 1:1` must go through
+  `escape_query_value` or the query breaks.
+- Drive tests run the real client against `tests/fake_drive.py` over `MockTransport`.
+  New client behaviour needs a matching branch in the fake, or it goes untested.
 - **Pocket returns an optional `speaker` per segment.** When present the pipeline
   skips diarization entirely (`SKIPPED`, not failed) and runs identification only.
   Whether it is reliably populated is the highest-value open question in the project —

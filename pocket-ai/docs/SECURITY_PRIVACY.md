@@ -81,7 +81,13 @@ and defaults to the narrower one.
   behind an explicit `APP_ENV=development` check.
 
 ### OAuth tokens
-- Refresh tokens stored with `0600` permissions outside the repository tree.
+*Implemented — `services/google_auth.py`.*
+- Refresh tokens stored with `0600` permissions in a `0700` directory outside the
+  repository tree, written via a private temp file and `os.replace` so a crash cannot
+  leave a truncated token and the secret is never briefly world-readable.
+- PKCE (S256) on every authorization, and a single-use `state` parameter that expires
+  after 10 minutes — without it, an attacker-supplied callback can redirect the user's
+  exports into an attacker-controlled Drive.
 - Narrowest workable scope: `drive.file` — access limited to files this app created —
   rather than `drive` (full account access). The app cannot read the user's other
   Drive content, which is both correct and a meaningful blast-radius reduction.

@@ -82,13 +82,34 @@ Refresh token: `0600`, outside the repo tree, never logged.
 Redirect URI must match `GOOGLE_OAUTH_REDIRECT_URI` byte-for-byte including any trailing
 slash. `redirect_uri_mismatch` is almost always this.
 
-## Working on this
+## Where the code is
 
-Implement against `StorageService` in `backend/app/services/protocols.py`. `StubStorageService`
-writes the identical tree to `MEDIA_ROOT/drive-stub/`, which means folder naming,
-idempotency, manifest handling, and hash-skip logic are all testable offline. Get the
-behavior right against the stub first; the Drive client should then be a thin adapter
-with no logic of its own.
+| Concern | File |
+|---------|------|
+| OAuth: consent, PKCE, state, refresh, token file | `services/google_auth.py` |
+| Drive REST: query, folders, uploads, backoff | `services/drive_client.py` |
+| Folder contract, idempotency, manifest | `services/drive_storage.py` |
+| Offline equivalent | `services/storage.py` (`StubStorageService`) |
+| In-memory Drive for tests | `tests/fake_drive.py` |
+
+Both implementations satisfy `StorageService` in `protocols.py`. Tests drive the *real*
+client through `httpx.MockTransport` against an in-memory Drive, so query building,
+multipart and resumable uploads, 308 continuation, backoff, and token refresh are all
+exercised as production code paths with no network and no credentials. If you are adding
+behaviour, add it to the fake too — a path that only runs against real Drive is a path
+nobody will test.
+
+## OAuth details that bite
+
+- **`access_type=offline` AND `prompt=consent`.** Miss either and a previously-consented
+  account comes back with no refresh token. Everything works for an hour, then unattended
+  export dies. The code raises loudly rather than storing a refresh-less credential.
+- **Refresh responses omit `refresh_token`.** `payload.get("refresh_token")` without a
+  fallback to the stored one destroys the durable grant and forces re-consent.
+- **`state` is the CSRF check.** Dropping it lets an attacker hand the user a callback
+  carrying their own code, silently redirecting exports into an attacker's Drive.
+- **Redirect URI must match byte-for-byte**, trailing slash included. `redirect_uri_mismatch`
+  is almost always this.
 
 ## Checklist before calling it done
 

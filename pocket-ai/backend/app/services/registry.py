@@ -19,11 +19,13 @@ from .diarization import (
     StubDiarizationService,
     StubIdentificationService,
 )
+from .drive_storage import DriveStorageService
+from .google_auth import GoogleOAuthFlow
 from .insights import LLMInsightsService, StubInsightsService
 from .llm import AnthropicLLMService, StubLLMService
 from .pocket import HttpPocketClient, StubPocketClient
 from .retrieval import GroundedChatService, StubRetrievalService
-from .storage import DriveStorageService, StubStorageService
+from .storage import StubStorageService
 from .validation import DefaultSpanValidator
 
 
@@ -38,8 +40,11 @@ class ServiceRegistry:
             if settings.llm_backend is Backend.REAL
             else StubLLMService(settings)
         )
+        # Shared so the OAuth routes and the storage service see the same pending-auth
+        # state and the same token file.
+        self.google_oauth = GoogleOAuthFlow(settings)
         self.storage = (
-            DriveStorageService(settings)
+            DriveStorageService(settings, oauth=self.google_oauth)
             if settings.storage_backend is Backend.REAL
             else StubStorageService(settings)
         )

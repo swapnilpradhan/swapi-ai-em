@@ -1,6 +1,7 @@
 # C1 — Google Drive export
 
-**Phase:** 1 · **Skill:** `.claude/skills/drive-export` · **Service:** `backend/app/services/storage.py`
+**Phase:** 1 · **Status:** implemented · **Skill:** `.claude/skills/drive-export`
+**Services:** `backend/app/services/{google_auth,drive_client,drive_storage}.py`
 
 ## Intent
 
@@ -62,13 +63,40 @@ where someone is about to make the mistake, not buried in settings.
 
 ## OAuth
 
-- Scope: `https://www.googleapis.com/auth/drive.file` — access limited to files this
-  app created. Never request full `drive` scope; the app has no legitimate need to
-  read the user's other files, and the reduced blast radius is worth the constraint.
-- Refresh token persisted with `0600` permissions outside the repo tree.
-- Flow: `GET /api/v1/drive/oauth/start` → Google consent → `GET /api/v1/drive/oauth/callback`.
+Implemented directly against Google's endpoints (`google_auth.py`) rather than through
+`google-auth-oauthlib` — the flow is small, the endpoints are stable, and this keeps the
+service layer async instead of bolting a synchronous client onto a thread pool.
+
+- **Scope: `drive.file`** — files this app created, nothing else. Never full `drive`.
+- **PKCE (S256)** on every authorization. Binds the code to this request, so a code
+  intercepted from the redirect cannot be redeemed without the verifier.
+- **`state` CSRF check.** Without it an attacker can hand the user a callback URL
+  carrying *their* code, silently pointing exports at an attacker-controlled Drive.
+  Single-use; expires after 10 minutes.
+- **`access_type=offline` + `prompt=consent`.** Both are required, or a re-authorizing
+  account gets an access token with no refresh token and unattended export dies an
+  hour later.
+- **Refresh never clobbers the stored refresh token.** Google omits it on refresh
+  responses; taking `.get()` without a fallback destroys the durable grant.
+- **Token file `0600`, directory `0700`, outside the repo tree.** Written via a private
+  temp file and `os.replace`, so a crash cannot leave a truncated token and the secret
+  is never briefly world-readable.
 - Redirect URI must match `GOOGLE_OAUTH_REDIRECT_URI` byte-for-byte including trailing
   slash, or Google returns `redirect_uri_mismatch`.
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/v1/drive/oauth/start` | Redirect to consent (`?redirect=false` for JSON) |
+| `GET /api/v1/drive/oauth/callback` | Exchange the code; renders a result page |
+| `POST /api/v1/drive/oauth/revoke` | Revoke at Google, then drop the local token |
+| `GET /api/v1/drive/status` | Backend, scope, authorization state, live `check()` |
+
+## Recovery metadata
+
+Every file and folder carries `appProperties`: `pocketAiStudio` (role), `meetingId`,
+and for artifacts `artifactKind`. This is what makes recovery efficient — the meeting
+folder is found by a metadata query, not by walking the tree — and it is why the
+"database loss is recoverable" claim is real rather than aspirational.
 
 ## Interface
 
@@ -81,18 +109,33 @@ class StorageService(Protocol):
 ```
 
 `StubStorageService` writes the same tree to `MEDIA_ROOT/drive-stub/`, so the folder
-contract and idempotency logic are exercised offline.
+contract and idempotency logic are exercised offline with no credentials at all.
+
+`DriveStorageService` implements the same protocol against Drive. Tests drive the real
+client through an in-memory Drive (`tests/fake_drive.py`) over `httpx.MockTransport`, so
+query building, multipart and resumable uploads, 308 continuation, backoff, and token
+refresh all run as production code paths without a network.
 
 ## Acceptance criteria
 
-- [ ] Fresh export produces the full folder tree with correct naming
-- [ ] Re-export performs zero writes when nothing changed
-- [ ] Re-export after editing one artifact writes only that artifact
-- [ ] Killing the process mid-audio-upload and restarting resumes, not restarts
-- [ ] Deleting the local database and re-syncing reconstructs export state from Drive
-- [ ] Rate-limit response triggers backoff, not failure
-- [ ] Every meeting folder contains the privacy README
-- [ ] Filenames with `/`, emoji, and 300-char titles are handled
+Covered by `tests/test_drive_export.py` and `tests/test_google_auth.py`:
+
+- [x] Fresh export produces the full folder tree with correct naming
+- [x] Re-export performs **zero** writes when nothing changed — manifest included
+- [x] Re-export after editing one artifact writes only that artifact (plus manifest)
+- [x] Interrupted resumable upload persists its session and resumes from the offset
+- [x] A dead session restarts cleanly rather than failing
+- [x] Export state reconstructs from Drive alone, with no database
+- [x] Rate-limit 403 / 429 / 5xx trigger backoff; permission 403 fails fast
+- [x] A 401 mid-flight refreshes once and retries
+- [x] Every meeting folder contains the privacy README
+- [x] Titles with apostrophes are query-escaped (`Priya's 1:1`)
+- [x] Same-day title collisions are disambiguated by meeting-id suffix
+- [x] A retitled meeting reuses its existing folder
+- [x] One failing artifact does not abandon the rest
+- [x] A previously failed artifact is retried on the next run
+- [x] Corrupt manifest does not block export
+- [ ] Verified against a real Google account *(needs a Cloud Console OAuth client)*
 
 ## Failure modes
 

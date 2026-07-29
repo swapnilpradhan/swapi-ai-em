@@ -38,10 +38,17 @@ communicator.
 
 ## Status
 
-Phase 0 complete. Architecture, data model, and capability specs are done, the API
-surface is real, and webhook-driven ingest is built end to end — though against an
-**unverified** reading of the Pocket API (see the note below). The heavier integrations
-(Drive OAuth, RAG, slide rendering) sit behind service interfaces with working stubs.
+Phase 1 in progress.
+
+- **Ingest** — webhook-driven pull from the Pocket API, built end to end, but against an
+  **unverified** reading of that API (see the note below).
+- **Drive export** — real OAuth (PKCE, `drive.file` scope) and a full Drive v3 client
+  with resumable uploads, idempotency, and manifest recovery. Complete and covered by
+  offline tests; not yet run against a live Google account. See
+  [`docs/SETUP_DRIVE.md`](docs/SETUP_DRIVE.md).
+- **Everything downstream** (RAG, slide rendering, coaching) sits behind service
+  interfaces with working stubs.
+
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what lands when.
 
 ## Quick start
@@ -70,6 +77,7 @@ pocket-ai/
 │   ├── DATA_MODEL.md
 │   ├── ROADMAP.md
 │   ├── SECURITY_PRIVACY.md
+│   ├── SETUP_DRIVE.md     Connecting a real Google account
 │   ├── adr/               Architecture decision records
 │   └── capabilities/      One spec per feature — the contract each skill implements
 ├── .claude/skills/        Claude Code skills, one per capability
@@ -77,6 +85,7 @@ pocket-ai/
 │   ├── models/            Pydantic domain model — the shared vocabulary
 │   ├── services/          Capability implementations behind protocols
 │   │                      pocket.py · webhooks.py · sync.py — the ingest path
+│   │                      google_auth.py · drive_client.py · drive_storage.py — export
 │   ├── api/routes/        HTTP surface
 │   └── core/              Config, logging
 ├── frontend/              Next.js app

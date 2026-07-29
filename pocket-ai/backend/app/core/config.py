@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_oauth_redirect_uri: str = "http://localhost:8000/api/v1/drive/oauth/callback"
     drive_root_folder_name: str = "Pocket.ai Studio"
+    # Refresh token lives outside the repository tree — a token swept into git or a
+    # project backup is a durable grant over the user's Drive.
+    google_token_path: Path = Path.home() / ".pocket-ai" / "google_token.json"
 
     # LLM
     anthropic_api_key: str = ""

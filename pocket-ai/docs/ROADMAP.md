@@ -44,13 +44,15 @@ credentials required; full test suite green.
 *Superseded: the watch-folder plan and the text-transcript parser as primary path.
 File import is retained as a fallback — see [ADR-0008](adr/0008-webhook-driven-ingest.md).*
 
-### 1.2 Google Drive export
-- OAuth device/web flow, refresh-token persistence
-- Folder tree provisioning: `Pocket.ai Studio/YYYY/YYYY-MM-DD — Title/`
-- Resumable upload for large audio
-- Idempotent writes keyed on `(meeting_id, artifact_kind)`
-- `manifest.json` written to Drive alongside artifacts
-- Backoff and resume on quota errors
+### 1.2 Google Drive export *(built)*
+- [x] OAuth with PKCE, CSRF state, `drive.file` scope, `0600` token outside the repo tree
+- [x] Folder tree provisioning: `Pocket.ai Studio/YYYY/YYYY-MM-DD — Title/`
+- [x] Resumable upload with session persistence and offset-accurate resume
+- [x] Idempotent writes keyed on `(meeting_id, artifact_kind)`; zero writes when unchanged
+- [x] `manifest.json` in Drive; state recovers from the archive alone
+- [x] `appProperties` recovery metadata on every file and folder
+- [x] Backoff on 429/5xx and rate-limit 403; permission 403 fails fast
+- [ ] **Verified against a real Google account** — needs a Cloud Console OAuth client
 
 ### 1.3 Reliability
 - Dead-letter queue for failed ingests, with retry
@@ -66,6 +68,7 @@ File import is retained as a fallback — see [ADR-0008](adr/0008-webhook-driven
 - Deleting the local database and re-syncing from Drive reconstructs export state
 
 **Risks:** Drive quota on large files; OAuth refresh expiry in long-running processes.
+Both are handled in code but unproven against the live API — see SETUP_DRIVE.md.
 
 ---
 

@@ -10,6 +10,8 @@ from datetime import UTC, datetime
 _TEST_MEDIA_ROOT = tempfile.mkdtemp(prefix="pocket-ai-tests-")
 os.environ.setdefault("MEDIA_ROOT", _TEST_MEDIA_ROOT)
 os.environ.setdefault("APP_ENV", "test")
+# Never let the suite read (or write) a real Google refresh token.
+os.environ.setdefault("GOOGLE_TOKEN_PATH", f"{_TEST_MEDIA_ROOT}/google_token.json")
 
 import pytest  # noqa: E402
 
