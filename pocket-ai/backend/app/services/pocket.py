@@ -28,13 +28,17 @@ log = get_logger(__name__)
 class PocketRoutes:
     """Every provider-specific path in one place.
 
-    Unverified — if the real API differs, this is the only thing that should need
-    changing, plus the field mapping in ``_parse_recording``.
+    Corrected against Pocket's published documentation: the base is
+    ``https://public.heypocketai.com`` and paths sit under ``/api/v1/public/``.
+    The transcript is not a separate resource — it arrives on the detail response
+    when ``include=all`` is requested.
     """
 
-    list_recordings: str = "/v1/recordings"
-    recording_detail: str = "/v1/recordings/{recording_id}"
-    transcript: str = "/v1/recordings/{recording_id}/transcript"
+    list_recordings: str = "/api/v1/public/recordings"
+    recording_detail: str = "/api/v1/public/recordings/{recording_id}"
+    # Retained as a fallback: if a deployment does expose a standalone transcript
+    # resource, get_recording will still find it when the detail response has none.
+    transcript: str = "/api/v1/public/recordings/{recording_id}/transcript"
 
 
 ROUTES = PocketRoutes()
@@ -290,7 +294,12 @@ class HttpPocketClient:
         raise RuntimeError("unreachable")
 
     async def get_recording(self, recording_id: str) -> PocketRecording:
-        detail = await self._get(ROUTES.recording_detail.format(recording_id=recording_id))
+        # `include=all` is what pulls the transcript and summary onto the detail
+        # response, so the common case costs one request rather than two.
+        detail = await self._get(
+            ROUTES.recording_detail.format(recording_id=recording_id),
+            {"include": "all"},
+        )
         if isinstance(detail, dict):
             detail = detail.get("recording", detail)
 

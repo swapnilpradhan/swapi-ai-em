@@ -8,11 +8,17 @@ description: Pull recordings from the Pocket API into the pipeline via webhooks,
 Read [`docs/capabilities/00-pocket-ingest.md`](../../../docs/capabilities/00-pocket-ingest.md)
 and [ADR-0008](../../../docs/adr/0008-webhook-driven-ingest.md).
 
-## Before you touch anything: the specs are unverified
+## Before you touch anything: some of the spec is still unverified
 
-Endpoint paths, field names, the signature scheme, and event names all came from public
-documentation summaries rather than Pocket's spec — `docs.heypocketai.com` blocks
-automated fetching. Some of it is probably wrong.
+Base URL and endpoint paths are now corrected against Pocket's published docs:
+`https://public.heypocketai.com`, paths under `/api/v1/public/`, and the transcript
+arriving on the detail response via `?include=all`. **Field names, the signature
+scheme, and event names are still inferred** — `docs.heypocketai.com` blocks automated
+fetching, so those came from documentation summaries.
+
+Getting a key: **Pocket Settings → Developer → API Keys** (starts with `pk_`).
+Transcript access appears to be Pro-gated — a free-plan key will likely list recordings
+but return no segments, which looks exactly like a parser bug and isn't one.
 
 This is contained by design. Everything provider-specific lives in one of four places:
 

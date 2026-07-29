@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # --- Pocket API (source of recordings) ---
     pocket_api_key: str = ""
-    pocket_api_base_url: str = "https://api.heypocketai.com"
+    pocket_api_base_url: str = "https://public.heypocketai.com"
     # Shared secret for verifying webhook signatures. Without it the webhook refuses
     # every delivery rather than trusting unauthenticated callers.
     pocket_webhook_secret: str = ""

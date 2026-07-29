@@ -40,8 +40,9 @@ communicator.
 
 Phase 1 in progress.
 
-- **Ingest** — webhook-driven pull from the Pocket API, built end to end, but against an
-  **unverified** reading of that API (see the note below).
+- **Ingest** — webhook-driven pull from the Pocket API, built end to end. Base URL and
+  paths are confirmed; field names and the webhook signature scheme are still inferred
+  (see the note below). Setup: [`docs/capabilities/00-pocket-ingest.md`](docs/capabilities/00-pocket-ingest.md).
 - **Drive export** — real OAuth (PKCE, `drive.file` scope) and a full Drive v3 client
   with resumable uploads, idempotency, and manifest recovery. Complete and covered by
   offline tests; not yet run against a live Google account. See

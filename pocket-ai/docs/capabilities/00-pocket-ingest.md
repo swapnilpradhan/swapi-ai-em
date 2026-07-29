@@ -9,15 +9,32 @@ See [ADR-0008](../adr/0008-webhook-driven-ingest.md).
 Get recordings from Pocket into the pipeline with no manual step. This is upstream of
 everything — if ingest is unreliable, nothing downstream matters.
 
+## Getting an API key
+
+**Pocket Settings → Developer → API Keys.** The key starts with `pk_`, and can be
+regenerated from the same screen.
+
+```bash
+POCKET_API_KEY=pk_your_key_here
+POCKET_API_BASE_URL=https://public.heypocketai.com
+```
+
+Auth is `Authorization: Bearer pk_...` (an `ApiKey pk_...` form is also accepted).
+
+**Transcript access appears to require Pocket Pro.** Basic search and account info are
+available on all plans; transcripts, folders, and the natural-language query tool are
+documented as Pro-only. Since the transcript *is* the ingest payload, a free-plan key
+will likely list recordings fine and return nothing useful from the detail endpoint.
+
 ## ⚠️ Verification checklist
 
-**The Pocket API specifics below are unverified.** They come from public documentation
-summaries; `docs.heypocketai.com` blocks automated fetching. Work through this with a
-real API key before trusting any of it:
+**Corrected against Pocket's published documentation** — base URL and paths are no
+longer guesses. The remaining items still need a real key:
 
-- [ ] **Base URL.** Is it `https://api.heypocketai.com`? → `POCKET_API_BASE_URL`
-- [ ] **Endpoint paths.** `/v1/recordings`, `/v1/recordings/{id}`, `/v1/recordings/{id}/transcript`? → `pocket.py::PocketRoutes`
-- [ ] **Is the transcript embedded** in the recording detail response, or a separate call?
+- [x] **Base URL:** `https://public.heypocketai.com`
+- [x] **Paths:** `/api/v1/public/recordings`, `/api/v1/public/recordings/{id}`
+- [x] **Transcript is embedded** in the detail response via `?include=all`, not a
+      separate resource. One request, not two.
 - [ ] **Field names.** `recordingId`/`recordingTitle`/`recordingDate`/`audioUrl`? → `pocket.py::parse_recording`
 - [ ] **Segment units.** Are `start`/`end` seconds (assumed) or milliseconds? Getting this
       wrong silently scales every timestamp by 1000 — check against a known recording length.
@@ -28,6 +45,12 @@ real API key before trusting any of it:
 - [ ] **Event names.** → `webhooks.py::KNOWN_EVENTS`
 - [ ] **Rate limits.**
 - [ ] **Is `audioUrl` pre-signed**, or does it need the Bearer token?
+- [ ] **Does your plan return transcripts?** If the detail response has no segments,
+      check the plan before debugging the parser.
+
+There is at least one community report of the API not matching its documentation, so
+treat a discrepancy as expected rather than as a bug in this code — and correct
+`PocketRoutes` when you find one.
 
 The one that changes scope most is `speaker`. If it is reliably populated, diarization
 leaves the critical path and Phase 2 loses pyannote, torch, and the GPU requirement.
